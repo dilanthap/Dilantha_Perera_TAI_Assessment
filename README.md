@@ -18,7 +18,7 @@ cited" is a purchasing requirement rather than a nice-to-have.
 ## Quick start
 
 ```bash
-git clone <this-repo> && cd Dilantha_Perera_TAI_Assessment
+git clone https://github.com/dilanthap/Dilantha_Perera_TAI_Assessment.git && cd Dilantha_Perera_TAI_Assessment
 
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
