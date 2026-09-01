@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% macro verdict_class(verdict) -%}
+{%- if verdict == 'aligned' -%}aligned
+{%- elif verdict == 'partially aligned' -%}partial
+{%- elif verdict == 'misaligned' -%}misaligned
+{%- else -%}unanswered{%- endif -%}
+{%- endmacro %}
+
+{% block title %}Results — {{ policy.title }}{% endblock %}
+
+{% block content %}
+<h2>Assessment results</h2>
+<p class="lede">{{ policy.title }}</p>
+
+<div class="card">
+  {% if overall is not none %}
+  <div class="scorecard">
+    <div class="score-big">{{ overall }}<span>/100</span></div>
+    <div class="meta">
+      <p class="section-label">Overall reasoning score</p>
+      <span class="pill {{ verdict_class(overall_verdict) }}">{{ overall_verdict }}</span>
+      <p class="hint">
+        Averaged across {{ answered_count }} of {{ total }} scenario{{ '' if total == 1 else 's' }}.
+      </p>
+    </div>
+  </div>
+  {% else %}
+  <p class="hint" style="margin:0">
+    No scenarios have been answered yet.
+    <a href="/policy/{{ policy.id }}/quiz?n=0">Start the assessment</a>.
+  </p>
+  {% endif %}
+</div>
+
+{% for scenario, response in rows %}
+<div class="card card--flush">
+  <div class="result-head">
+    <div>
+      <p class="n">Scenario {{ loop.index }}</p>
+      <p class="scenario-text">{{ scenario.prompt_text }}</p>
+    </div>
+    {% if response %}
+    <div class="result-score">
+      <div class="num">{{ response.reasoning_score }}</div>
+      <span class="pill {{ verdict_class(response.verdict) }}">{{ response.verdict }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if response %}
+  <div class="result-body">
+    <div class="block">
+      <p class="section-label">Your answer</p>
+      <p class="answer-quote">{{ response.user_answer }}</p>
+    </div>
+
+    <div class="block">
+      <p class="section-label">Assessment of your reasoning</p>
+      <p class="feedback">{{ response.feedback_text }}</p>
+    </div>
+
+    <div class="block">
+      <p class="section-label">Policy section relied on</p>
+      <p class="citation {% if response.cited_policy_section == 'Not addressed by this policy' %}not-addressed{% endif %}">
+        {{ response.cited_policy_section }}
+      </p>
+    </div>
+  </div>
+  {% else %}
+  <div class="unanswered-body">
+    Not answered.
+    <a href="/policy/{{ policy.id }}/quiz?n={{ loop.index0 }}">Answer this scenario</a>.
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<div class="actions">
+  <a class="btn btn--ghost" href="/">Assess another policy</a>
+</div>
+{% endblock %}

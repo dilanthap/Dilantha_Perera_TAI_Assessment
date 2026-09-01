@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Upload your AI-usage policy</h2>
+<p class="lede">
+  We'll generate realistic workplace scenarios grounded in your specific policy,
+  then assess the quality of your reasoning against it — citing the exact section
+  that applies.
+</p>
+
+<form class="card" action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+
+  <div class="field">
+    <label for="title">Policy name</label>
+    <input type="text" id="title" name="title" maxlength="255"
+           placeholder="e.g. Acme Corp AI Acceptable Use Policy"
+           value="{{ prefill_title }}">
+  </div>
+
+  <div class="field">
+    <label for="policy_text">Policy text</label>
+    <textarea id="policy_text" name="policy_text" rows="14"
+              placeholder="Paste your full AI-usage policy here…">{{ prefill_text }}</textarea>
+    <p class="hint">A few pages works best. The whole document is read on every call.</p>
+  </div>
+
+  <div class="divider">or upload a file</div>
+
+  <div class="field">
+    <label for="policy_file">Policy document</label>
+    <input type="file" id="policy_file" name="policy_file" accept=".txt,.md,.markdown,.pdf">
+    <p class="hint">
+      .txt and .md are the reliable path. .pdf is supported best-effort — if
+      extraction fails you'll get a clear message, not a crash.
+    </p>
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="btn" id="submit-btn">Generate scenarios</button>
+    {% if not prefill_text %}
+    <a class="btn btn--ghost" href="/?sample=1">Load sample policy</a>
+    {% endif %}
+    <span class="note" id="working-note" hidden>Reading the policy and writing scenarios…</span>
+  </div>
+</form>
+
+<script>
+  // Generation takes a few seconds. Disable on submit so an impatient
+  // double-click can't create two policies.
+  document.getElementById('upload-form').addEventListener('submit', function () {
+    var btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    document.getElementById('working-note').hidden = false;
+  });
+</script>
+{% endblock %}

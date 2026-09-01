@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario {{ index + 1 }} of {{ total }} — AI Policy &amp; Risk Simulator{% endblock %}
+
+{% block content %}
+<h2>{{ policy.title }}</h2>
+
+<div class="progress-head">
+  <span class="progress-count">Scenario {{ index + 1 }} of {{ total }}</span>
+  <div class="pips">
+    {% for sid in scenario_ids %}
+      <span class="pip {% if loop.index0 == index %}current{% elif sid in answered_ids %}done{% endif %}"></span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <p class="scenario-text">{{ scenario.prompt_text }}</p>
+
+  <div class="excerpt">
+    <p class="section-label">Policy section this draws on</p>
+    {{ scenario.relevant_policy_excerpt }}
+  </div>
+
+  <form action="/policy/{{ policy.id }}/answer" method="post" id="answer-form">
+    <input type="hidden" name="scenario_id" value="{{ scenario.id }}">
+    <input type="hidden" name="n" value="{{ index }}">
+
+    <div class="field">
+      <label for="user_answer">What would you do, and why?</label>
+      <textarea id="user_answer" name="user_answer" rows="8" required
+                placeholder="Explain your reasoning — which part of the policy applies, what tension you see, and what you'd actually do."></textarea>
+      <p class="hint">
+        You're assessed on your reasoning, not just your conclusion. Say which
+        part of the policy you're relying on.
+      </p>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn" id="submit-btn">
+        {% if index + 1 == total %}Submit &amp; see results{% else %}Submit answer{% endif %}
+      </button>
+      <span class="note" id="working-note" hidden>Assessing your reasoning…</span>
+    </div>
+  </form>
+</div>
+
+{% if answered_ids %}
+<p class="hint">
+  <a href="/policy/{{ policy.id }}/results">Skip to results</a>
+  ({{ answered_ids | length }} of {{ total }} answered)
+</p>
+{% endif %}
+
+<script>
+  document.getElementById('answer-form').addEventListener('submit', function (e) {
+    var box = document.getElementById('user_answer');
+    if (!box.value.trim()) { return; }  // let the browser's required check fire
+    var btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Assessing…';
+    document.getElementById('working-note').hidden = false;
+  });
+</script>
+{% endblock %}

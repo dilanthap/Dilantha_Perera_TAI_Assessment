@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AI Policy &amp; Risk Simulator{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body>
+
+{% if demo_mode %}
+<div class="demo-banner">
+  Running in demo mode — assessments come from bundled sample data, not the live API.
+  Unset <code>DEMO_MODE</code> and set <code>ANTHROPIC_API_KEY</code> for real scoring.
+</div>
+{% endif %}
+
+<header class="masthead">
+  <div class="wrap">
+    <h1><a href="/">AI Policy &amp; Risk Simulator</a></h1>
+    <p class="tag">Scenario-based compliance training, grounded in your policy</p>
+  </div>
+</header>
+
+<main class="wrap">
+  {% block content %}{% endblock %}
+
+  <div class="foot">
+    {% block footer %}
+    Every scenario and every assessment is generated from the uploaded policy text
+    and cited back to it.
+    {% endblock %}
+  </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Something went wrong — AI Policy &amp; Risk Simulator{% endblock %}
+
+{% block content %}
+<div class="card error-card">
+  <h2>Something went wrong</h2>
+  <p class="feedback">{{ message }}</p>
+
+  <div class="actions">
+    <a class="btn" href="/">Start over</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+If this keeps happening, check that <code>ANTHROPIC_API_KEY</code> is set in your
+<code>.env</code> file — or run with <code>DEMO_MODE=1</code> to use bundled sample data.
+{% endblock %}
