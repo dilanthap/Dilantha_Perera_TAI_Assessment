@@ -3,6 +3,11 @@
 One loop, five routes. Every route that can touch the model catches LLMError and
 renders a clean error page — a failed API call must never reach the user as a
 stack trace.
+
+The policy-library routes (retrieval-grounded Q&A across a document corpus)
+live in app/library.py and are mounted below via include_router — a separate
+module because it is a genuinely different mode (see app/rag.py), not a
+variation on this one.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ from sqlalchemy.orm import Session
 from app import llm
 from app.database import get_db, init_db
 from app.generation import generate_scenarios
+from app.library import router as library_router
 from app.models import Policy, Response as ResponseModel, Scenario
 from app.scoring import score_answer
 
@@ -38,6 +44,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Policy & Risk Simulator", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
+app.include_router(library_router)
 templates = Jinja2Templates(directory=PROJECT_ROOT / "templates")
 
 

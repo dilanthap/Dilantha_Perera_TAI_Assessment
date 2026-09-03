@@ -180,6 +180,78 @@ _SCORINGS: list[dict[str, Any]] = [
 _scoring_cycle = cycle(_SCORINGS)
 
 
+# --------------------------------------------------------------------------
+# Policy library answer fixture — shaped exactly like the dict
+# app/rag.py:_coerce_library_answer returns, so library.html renders it
+# identically whether it came from the model or from here. "retrieved" uses
+# plain dicts rather than RetrievedChunk instances: Jinja2 attribute access
+# (`r.document_title`) falls back to item lookup on a dict automatically, so
+# the template needs no branch for demo vs. live data.
+# --------------------------------------------------------------------------
+
+_LIBRARY_ANSWER: dict[str, Any] = {
+    "answer": (
+        "Not as-is, even though the tool is on the Approved AI Tools Register. "
+        "Register approval addresses the vendor's security posture — it does "
+        "not grant permission to disclose client data to that vendor, and that "
+        "restriction applies regardless of which tool you use (3.2). Before "
+        "using an approved tool on the filings, remove or replace every "
+        "identifying detail so the remaining text could not be attributed to a "
+        "specific client; the anonymised version may then go through the "
+        "approved tool (3.3)."
+    ),
+    "addressed": True,
+    "citations": [
+        {
+            "document": "Northwind Financial Partners — Acceptable Use of Artificial Intelligence",
+            "excerpt": (
+                "3.2 The restriction in 3.1 applies regardless of the tool's "
+                "stated data-retention or training policy, and regardless of "
+                "whether the tool is on the Approved AI Tools Register. Approval "
+                "of a tool addresses vendor security posture; it does not grant "
+                "permission to disclose client data to that vendor."
+            ),
+        },
+        {
+            "document": "Northwind Financial Partners — Acceptable Use of Artificial Intelligence",
+            "excerpt": (
+                "3.3 Where an AI tool would be genuinely useful for a task "
+                "involving client material, personnel must first remove or "
+                "replace all identifying details so that the remaining text "
+                "could not be attributed to a specific client. Anonymised "
+                "material may then be processed using an approved tool."
+            ),
+        },
+    ],
+    "retrieved": [
+        {
+            "document_title": "Northwind Financial Partners — Acceptable Use of Artificial Intelligence",
+            "heading": "3. Client and Confidential Data",
+            "text": (
+                "3.2 The restriction in 3.1 applies regardless of the tool's "
+                "stated data-retention or training policy... 3.3 Where an AI "
+                "tool would be genuinely useful for a task involving client "
+                "material, personnel must first remove or replace all "
+                "identifying details..."
+            ),
+            "score": 0.61,
+        },
+        {
+            "document_title": "Northwind Financial Partners — Acceptable Use of Artificial Intelligence",
+            "heading": "2. Approved Tools",
+            "text": (
+                "2.1 Personnel may use only AI tools listed on the Approved AI "
+                "Tools Register... 2.2 Approved tools are provisioned through "
+                "the Firm's enterprise accounts with single sign-on."
+            ),
+            "score": 0.34,
+        },
+    ],
+    "confidence": "high",
+    "top_score": 0.61,
+}
+
+
 def get(key: str) -> Any:
     """Return a canned payload for `key`, shaped like real model output."""
     if key == "scenarios":
@@ -187,4 +259,6 @@ def get(key: str) -> Any:
         return [dict(item) for item in _SCENARIOS]
     if key == "scoring":
         return dict(next(_scoring_cycle))
+    if key == "library_answer":
+        return dict(_LIBRARY_ANSWER)
     raise KeyError(f"No demo fixture registered for {key!r}")

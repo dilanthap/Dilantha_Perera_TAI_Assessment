@@ -24,13 +24,23 @@ python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env               # then add your key to .env
+cp .env.example .env               # then add your key(s) to .env
 # ANTHROPIC_API_KEY=sk-ant-...
+# VOYAGE_API_KEY=pa-...             # optional — only needed for the policy library, below
 
 uvicorn app.main:app --reload
 ```
 
 Open **http://127.0.0.1:8000**, click **Load sample policy**, and run the loop.
+
+There are two independent tools in this app, at two different scales — see
+[The two retrieval strategies](#the-two-retrieval-strategies) for why they're
+built differently rather than sharing one approach:
+
+- **`/`** — upload one policy, get scenarios generated from its full text.
+- **`/library`** — upload several documents, ask ad-hoc questions answered from
+  retrieved excerpts. Needs `VOYAGE_API_KEY` for real embeddings; runs on
+  fixtures under `DEMO_MODE=1` like everything else.
 
 ### Try it without an API key
 
@@ -39,9 +49,10 @@ DEMO_MODE=1 uvicorn app.main:app --reload
 ```
 
 Demo mode serves bundled sample assessments instead of calling the API — no key,
-no network. The entire UI, database and scoring loop work identically. It exists
-so you can see the app run before spending a key on it, and so the UI could be
-tested independently of model behaviour during development.
+no network. The entire UI, database and scoring loop work identically, for both
+`/` and `/library`. It exists so you can see the app run before spending a key
+on it, and so the UI could be tested independently of model behaviour during
+development.
 
 A ready-made sample policy is in [`samples/northwind_ai_policy.md`](samples/northwind_ai_policy.md)
 — a realistic one-page AI-usage policy for a fictional financial firm.
@@ -57,12 +68,18 @@ Upload policy  ──▶  Generate scenarios  ──▶  Answer in free text  �
 
 | File | Role |
 |---|---|
-| `app/main.py` | FastAPI routes; catches every `LLMError` and renders a clean error page |
+| `app/main.py` | FastAPI routes for the quiz loop; catches every `LLMError` and renders a clean error page |
 | `app/llm.py` | Anthropic client, timeouts, error translation, JSON extraction, demo mode |
 | `app/prompts.py` | Every prompt, isolated for reading and tuning |
 | `app/generation.py` | Policy → grounded scenarios |
 | `app/scoring.py` | Scenario + excerpt + answer → score, verdict, feedback, citation |
-| `app/models.py` | `Policy` → `Scenario` → `Response` |
+| `app/models.py` | `Policy` → `Scenario` → `Response`, plus `LibraryDocument` → `LibraryChunk` |
+| `app/library.py` | FastAPI routes for the policy library (`/library`) |
+| `app/rag.py` | Chunking, embedding (Voyage AI), retrieval and answer generation for the library |
+
+The policy library is a second, independent tool at `/library` — chunk → embed
+→ retrieve → answer, for when a single policy's full text stops being the right
+unit of context. See below.
 
 ---
 
@@ -103,13 +120,17 @@ reasons about recruitment and watch the model decline to invent a rule for it.
 
 ## Design decisions
 
-### No vector store — a considered choice, not a shortcut
+### The two retrieval strategies
 
 The reflex for "answer questions about a document" is chunk → embed → retrieve
-top-k. This app deliberately does not, because an AI-usage policy is a few pages
-(the sample is ~1,100 tokens) and fits in the context window many times over.
-Sending the whole document on every call buys three things chunked retrieval
-would cost:
+top-k. This app uses that reflex in exactly one of its two tools, and
+deliberately not the other — same underlying question, different answer at
+different scale.
+
+**The quiz (`/`) does NOT use retrieval.** An AI-usage policy is a few pages
+(the sample is ~1,100 tokens) and fits in the context window many times over,
+so `app/generation.py` sends the whole document on every call. That buys three
+things chunked retrieval would cost:
 
 1. **Completeness.** Generation needs the *whole* policy to pick provisions that
    interact and to spread scenarios across different sections. Top-k retrieval
@@ -122,8 +143,30 @@ would cost:
    identical to the model. With the full text in context, silence is real silence
    — which is what makes the anti-fabrication guarantee above meaningful.
 
-This stops working for a client with a library of long policies or a
-hundred-page handbook. That is the first thing I'd build next (see below).
+**The policy library (`/library`) DOES use retrieval**, in `app/rag.py`,
+because at that scale the tradeoff flips. A library can hold several documents,
+or documents long enough that resending all of them on every question is
+neither cheap nor reliable — the problem retrieval actually solves. Rather than
+wave that scenario away, it's built out for real:
+
+- **Section-aware chunking.** Splits on `## Heading` boundaries first (falling
+  back to numbered-subsection, then paragraph-aligned splitting only when a
+  section runs long), so a chunk's heading stays attached to its body — the
+  exact citation-fidelity property the quiz gets for free from full context.
+- **Voyage AI embeddings** (`voyage-law-2`, tuned for legal/compliance text —
+  a closer fit here than a general-purpose model) with a plain cosine-similarity
+  scan over the library's chunks. No vector database: at library scale (a
+  handful of documents, at most a few dozen chunks) a linear scan in Python is
+  fast enough, and it costs zero extra infrastructure — the same reasoning
+  `app/database.py` applies to choosing SQLite over Postgres.
+- **A retrieval-confidence signal**, carried through to both the prompt and the
+  UI, that keeps "the search found nothing convincing" distinguishable from
+  "the policy is silent" — the exact failure mode that would otherwise
+  undermine the anti-fabrication guarantee once retrieval is in the loop.
+
+Two tools, two scales, and the same principle underneath both: pick the
+retrieval strategy the actual document set justifies, not the one that's
+fashionable to demo.
 
 ### Small model tier
 
@@ -175,9 +218,20 @@ never surfaces as a stack trace.**
 
 ## What I'd do with more time
 
-- **Real chunked RAG** for large policy libraries — section-aware splitting so
-  citations stay intact across chunk boundaries, plus a retrieval-confidence
-  signal so "the policy is silent" stays distinguishable from "retrieval missed".
+- **A real vector index for the library once it stops being small.** The linear
+  cosine-similarity scan in `app/rag.py` is the right call at "a handful of
+  documents" — it stops being the right call once a client's library grows past
+  that, at which point it's a swap to pgvector or a dedicated vector store, not
+  a rewrite of the chunking or prompting.
+- **An eval set for the confidence thresholds.** `_HIGH_CONFIDENCE_FLOOR` /
+  `_LOW_CONFIDENCE_FLOOR` in `app/rag.py` are a reasonable starting heuristic,
+  not a measured one — they need a labelled set of (question, expected
+  relevant-or-not) pairs to tune properly, the same gap called out below for
+  the scoring bands.
+- **Audit trail for library questions.** The quiz keeps every `Response`;
+  `/library/ask` currently doesn't persist a `Query` row, so there's no record
+  of what was asked or what was retrieved for it — the same defensibility
+  argument that drives the quiz's audit trail applies here too.
 - **Auth and roles** — employee vs. compliance-manager views; right now anyone
   with a policy ID can see its results.
 - **Admin view of aggregate compliance gaps.** The highest-value extension and
@@ -200,15 +254,17 @@ never surfaces as a stack trace.**
 
 ```
 app/
-  main.py         FastAPI routes
+  main.py         FastAPI routes for the quiz loop
+  library.py      FastAPI routes for the policy library (/library)
   database.py     engine, session, init
-  models.py       Policy / Scenario / Response
+  models.py       Policy / Scenario / Response, LibraryDocument / LibraryChunk
   llm.py          Anthropic wrapper, JSON extraction, DEMO_MODE
+  rag.py          chunking, Voyage AI embedding, retrieval, library answers
   prompts.py      all prompts
   generation.py   policy -> scenarios
   scoring.py      answer -> assessment
   fixtures.py     canned demo-mode payloads
-templates/        base, upload, quiz, results, error
+templates/        base, upload, quiz, results, error, library
 static/style.css  single stylesheet
 samples/          one realistic sample policy
 ```
