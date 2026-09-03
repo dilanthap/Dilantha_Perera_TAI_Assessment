@@ -96,7 +96,13 @@
     {% for doc in documents %}
     <li>
       <span>{{ doc.title }}</span>
-      <span class="chunk-count">{{ doc.chunks | length }} chunk{{ '' if doc.chunks | length == 1 else 's' }}</span>
+      <span class="doc-meta">
+        <span class="chunk-count">{{ doc.chunks | length }} chunk{{ '' if doc.chunks | length == 1 else 's' }}</span>
+        <form action="/library/documents/{{ doc.id }}/delete" method="post"
+              onsubmit="return confirm('Remove this document from the library? This cannot be undone.');">
+          <button type="submit" class="btn-remove">Remove</button>
+        </form>
+      </span>
     </li>
     {% endfor %}
   </ul>

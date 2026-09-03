@@ -108,6 +108,27 @@ async def upload_document(
     return RedirectResponse(url="/library", status_code=303)
 
 
+@router.post("/library/documents/{document_id}/delete")
+def delete_document(request: Request, document_id: int, db: Session = Depends(get_db)):
+    """Remove one document and its chunks from the library.
+
+    Cascade is configured on the ORM relationship (models.py:
+    LibraryDocument.chunks, cascade="all, delete-orphan") and the FK
+    (ondelete="CASCADE"), so deleting the document also deletes every chunk
+    that was embedded from it — nothing else references a LibraryDocument, so
+    this is safe to do outright rather than needing a confirmation step
+    server-side (the UI's delete button confirms client-side instead).
+    """
+    document = db.get(LibraryDocument, document_id)
+    if document is None:
+        return _error(request, "That document could not be found.", status_code=404)
+
+    db.delete(document)
+    db.commit()
+
+    return RedirectResponse(url="/library", status_code=303)
+
+
 @router.post("/library/ask", response_class=HTMLResponse)
 def ask_library(request: Request, question: str = Form(""), db: Session = Depends(get_db)):
     """Retrieve across every document in the library and answer from that."""
