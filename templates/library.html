@@ -5,22 +5,20 @@
 {% block content %}
 <h2>Policy library</h2>
 <p class="lede">
-  Ask a question across every document below. Unlike the single-policy tool,
-  this doesn't put the whole library in context on every call — each answer is
-  grounded in whatever a similarity search actually retrieved, with a
-  confidence signal so a weak retrieval doesn't get presented as a confident
-  answer. (See <code>app/rag.py</code> for why this exists as a separate mode
-  from the quiz above.)
+  Ask a question across every document below, and get an answer grounded in
+  whatever a similarity search actually finds — with a confidence signal, so a
+  weak search result never gets presented as a sure answer.
 </p>
 
 {% if demo_mode %}
 <p class="hint">
-  In demo mode, documents you add here are really chunked (try it — the chunk
-  count below is real), but the <strong>Ask</strong> button always returns one
-  canned answer rather than actually embedding your question or the library.
+  In demo mode, documents you add are really chunked (the chunk count below is
+  real), but <strong>Ask</strong> always returns one sample answer rather than
+  actually searching.
 </p>
 {% endif %}
 
+{% if documents %}
 <div class="card">
   <p class="section-label">Ask the library</p>
   <form action="/library/ask" method="post" id="ask-form">
@@ -35,6 +33,7 @@
     </div>
   </form>
 </div>
+{% endif %}
 
 {% if answer %}
 <div class="card card--flush">
@@ -59,9 +58,11 @@
     <div class="block">
       <p class="section-label">Cited excerpts</p>
       {% for c in answer.citations %}
-      <p class="citation" style="margin-bottom: 10px;">
+      {% set tag = c.excerpt | section_tag %}
+      <div class="citation" style="margin-bottom: 10px;">
+        {% if tag %}<span class="tag-chip">&sect; {{ tag }}</span>{% endif %}
         <strong>{{ c.document }}</strong><br>{{ c.excerpt }}
-      </p>
+      </div>
       {% endfor %}
     </div>
     {% endif %}
@@ -98,47 +99,55 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="hint" style="margin: 0;">No documents uploaded yet — add one below.</p>
+  <p class="empty-note">Nothing here yet — add your first document below to start asking questions.</p>
   {% endif %}
 </div>
 
-<div class="card">
-  <p class="section-label">Add a document</p>
-  <form action="/library/documents" method="post" enctype="multipart/form-data" id="lib-upload-form">
-    <div class="field">
-      <label for="lib_title">Title</label>
-      <input type="text" id="lib_title" name="title" maxlength="255"
-             placeholder="e.g. Vendor Data Handling Addendum">
-    </div>
+<details class="add-doc" {% if not documents %}open{% endif %}>
+  <summary>
+    Add a document
+    <span class="hint">.txt or .md, a couple hundred words or more</span>
+  </summary>
+  <div class="details-body">
+    <form action="/library/documents" method="post" enctype="multipart/form-data" id="lib-upload-form">
+      <div class="field">
+        <label for="lib_title">Title</label>
+        <input type="text" id="lib_title" name="title" maxlength="255"
+               placeholder="e.g. Vendor Data Handling Addendum">
+      </div>
 
-    <div class="field">
-      <label for="document_text">Document text</label>
-      <textarea id="document_text" name="document_text" rows="8"
-                placeholder="Paste document text…"></textarea>
-    </div>
+      <div class="field">
+        <label for="document_text">Document text</label>
+        <textarea id="document_text" name="document_text" rows="8"
+                  placeholder="Paste document text…"></textarea>
+      </div>
 
-    <div class="divider">or upload a file</div>
+      <div class="divider">or upload a file</div>
 
-    <div class="field">
-      <label for="document_file">Document file</label>
-      <input type="file" id="document_file" name="document_file" accept=".txt,.md,.markdown">
-      <p class="hint">.txt and .md only here — this form isn't wired for PDF.</p>
-    </div>
+      <div class="field">
+        <label for="document_file">Document file</label>
+        <input type="file" id="document_file" name="document_file" accept=".txt,.md,.markdown">
+        <p class="hint">.txt and .md only here — this form isn't wired for PDF.</p>
+      </div>
 
-    <div class="actions">
-      <button type="submit" class="btn btn--ghost" id="lib-submit-btn">Add to library</button>
-      <span class="note" id="lib-note" hidden>Chunking and embedding…</span>
-    </div>
-  </form>
-</div>
+      <div class="actions">
+        <button type="submit" class="btn" id="lib-submit-btn">Add to library</button>
+        <span class="note" id="lib-note" hidden>Chunking and embedding…</span>
+      </div>
+    </form>
+  </div>
+</details>
 
 <script>
-  document.getElementById('ask-form').addEventListener('submit', function () {
-    var btn = document.getElementById('ask-btn');
-    btn.disabled = true;
-    btn.textContent = 'Asking…';
-    document.getElementById('ask-note').hidden = false;
-  });
+  var askForm = document.getElementById('ask-form');
+  if (askForm) {
+    askForm.addEventListener('submit', function () {
+      var btn = document.getElementById('ask-btn');
+      btn.disabled = true;
+      btn.textContent = 'Asking…';
+      document.getElementById('ask-note').hidden = false;
+    });
+  }
 
   document.getElementById('lib-upload-form').addEventListener('submit', function () {
     var btn = document.getElementById('lib-submit-btn');

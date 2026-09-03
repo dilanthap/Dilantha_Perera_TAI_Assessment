@@ -8,6 +8,12 @@
   that applies.
 </p>
 
+<ul class="steps">
+  <li><span class="num">1</span><span class="label">Upload your policy</span></li>
+  <li><span class="num">2</span><span class="label">Answer realistic scenarios</span></li>
+  <li><span class="num">3</span><span class="label">Get scored, with citations</span></li>
+</ul>
+
 <form class="card" action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
 
   <div class="field">
@@ -54,4 +60,10 @@
     document.getElementById('working-note').hidden = false;
   });
 </script>
+
+<p class="hint" style="text-align: center; margin-top: 28px;">
+  Have more than one policy, or a longer document? Try the
+  <a href="/library">policy library</a> instead — it answers questions across
+  several documents rather than quizzing you on one.
+</p>
 {% endblock %}

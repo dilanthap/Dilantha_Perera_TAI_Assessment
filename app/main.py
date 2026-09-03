@@ -19,7 +19,6 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app import llm
@@ -28,6 +27,7 @@ from app.generation import generate_scenarios
 from app.library import router as library_router
 from app.models import Policy, Response as ResponseModel, Scenario
 from app.scoring import score_answer
+from app.templating import templates
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_POLICY_PATH = PROJECT_ROOT / "samples" / "northwind_ai_policy.md"
@@ -45,7 +45,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AI Policy & Risk Simulator", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
 app.include_router(library_router)
-templates = Jinja2Templates(directory=PROJECT_ROOT / "templates")
 
 
 # --------------------------------------------------------------------------

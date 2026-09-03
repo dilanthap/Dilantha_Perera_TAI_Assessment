@@ -19,6 +19,8 @@
 
   <div class="excerpt">
     <p class="section-label">Policy section this draws on</p>
+    {% set tag = scenario.relevant_policy_excerpt | section_tag %}
+    {% if tag %}<span class="tag-chip">&sect; {{ tag }}</span>{% endif %}
     {{ scenario.relevant_policy_excerpt }}
   </div>
 

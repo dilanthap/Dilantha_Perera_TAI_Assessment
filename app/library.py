@@ -14,16 +14,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app import llm
 from app.database import get_db
 from app.models import LibraryDocument
 from app.rag import answer_library_question, ingest_document
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=PROJECT_ROOT / "templates")
+from app.templating import templates
 
 router = APIRouter()
 

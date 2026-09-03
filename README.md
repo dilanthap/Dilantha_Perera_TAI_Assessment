@@ -76,6 +76,7 @@ Upload policy  ──▶  Generate scenarios  ──▶  Answer in free text  �
 | `app/models.py` | `Policy` → `Scenario` → `Response`, plus `LibraryDocument` → `LibraryChunk` |
 | `app/library.py` | FastAPI routes for the policy library (`/library`) |
 | `app/rag.py` | Chunking, embedding (Voyage AI), retrieval and answer generation for the library |
+| `app/templating.py` | Shared `Jinja2Templates` instance used by both routers, plus the `section_tag` filter |
 
 The policy library is a second, independent tool at `/library` — chunk → embed
 → retrieve → answer, for when a single policy's full text stops being the right
@@ -260,6 +261,7 @@ app/
   models.py       Policy / Scenario / Response, LibraryDocument / LibraryChunk
   llm.py          Anthropic wrapper, JSON extraction, DEMO_MODE
   rag.py          chunking, Voyage AI embedding, retrieval, library answers
+  templating.py   shared Jinja2Templates instance + section_tag filter
   prompts.py      all prompts
   generation.py   policy -> scenarios
   scoring.py      answer -> assessment

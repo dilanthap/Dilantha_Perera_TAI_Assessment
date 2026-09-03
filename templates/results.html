@@ -62,9 +62,11 @@
 
     <div class="block">
       <p class="section-label">Policy section relied on</p>
-      <p class="citation {% if response.cited_policy_section == 'Not addressed by this policy' %}not-addressed{% endif %}">
+      {% set tag = response.cited_policy_section | section_tag %}
+      <div class="citation {% if response.cited_policy_section == 'Not addressed by this policy' %}not-addressed{% endif %}">
+        {% if tag %}<span class="tag-chip">&sect; {{ tag }}</span>{% endif %}
         {{ response.cited_policy_section }}
-      </p>
+      </div>
     </div>
   </div>
   {% else %}
