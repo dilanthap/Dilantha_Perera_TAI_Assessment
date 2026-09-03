@@ -101,27 +101,36 @@ body {
 .tool-tabs .wrap {
   padding: 0 24px;
   display: flex;
-  gap: 4px;
+  gap: 28px;
 }
 
 .tab {
-  display: inline-block;
-  padding: 11px 4px;
-  margin-right: 22px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 2px 11px;
   text-decoration: none;
   border-bottom: 2px solid transparent;
-  transition: color 0.12s, border-color 0.12s;
+  transition: border-color 0.12s;
 }
 
-.tab:hover { color: var(--ink); }
-
-.tab.is-active {
-  color: var(--accent-dark);
-  border-bottom-color: var(--accent);
+.tab-label {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink-faint);
+  transition: color 0.12s;
 }
+
+.tab-sub {
+  font-size: 11px;
+  color: var(--ink-faint);
+  opacity: 0.75;
+}
+
+.tab:hover .tab-label { color: var(--ink); }
+
+.tab.is-active { border-bottom-color: var(--accent); }
+.tab.is-active .tab-label { color: var(--accent-dark); }
 
 /* ---------------- Demo banner ---------------- */
 
@@ -709,4 +718,9 @@ details.add-doc .details-body {
   h2 { font-size: 23px; }
   .steps { flex-direction: column; }
   .steps li { padding: 8px 0; }
+}
+
+@media (max-width: 480px) {
+  .tool-tabs .wrap { gap: 20px; }
+  .tab-sub { display: none; }
 }

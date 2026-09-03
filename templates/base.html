@@ -26,10 +26,12 @@
   <nav class="tool-tabs">
     <div class="wrap">
       <a class="tab {% if not request.url.path.startswith('/library') %}is-active{% endif %}" href="/">
-        Assessment
+        <span class="tab-label">Take the assessment</span>
+        <span class="tab-sub">quiz yourself on one policy, get scored</span>
       </a>
       <a class="tab {% if request.url.path.startswith('/library') %}is-active{% endif %}" href="/library">
-        Policy library
+        <span class="tab-label">Ask the library</span>
+        <span class="tab-sub">search questions across several documents</span>
       </a>
     </div>
   </nav>
