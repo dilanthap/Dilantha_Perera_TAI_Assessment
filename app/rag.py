@@ -229,26 +229,33 @@ def ingest_document(db, title: str, raw_text: str) -> LibraryDocument:
     db.add(document)
     db.flush()  # assigns document.id without committing
 
-    chunks = chunk_document(raw_text)
-    if not chunks:
-        db.rollback()
-        raise LLMError("Could not split this document into any sections.")
+    try:
+        chunks = chunk_document(raw_text)
+        if not chunks:
+            raise LLMError("Could not split this document into any sections.")
 
-    if DEMO_MODE:
-        vectors: list[list[float] | None] = [None] * len(chunks)
-    else:
-        vectors = embed_texts([c.text for c in chunks], input_type="document")
+        if DEMO_MODE:
+            vectors: list[list[float] | None] = [None] * len(chunks)
+        else:
+            # A failure here (missing key, rate limit, network) must not leave
+            # the flushed-but-uncommitted document row dangling — roll back so
+            # the session doesn't carry a half-finished insert into whatever
+            # request or query runs next.
+            vectors = embed_texts([c.text for c in chunks], input_type="document")
 
-    for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
-        db.add(
-            LibraryChunk(
-                document_id=document.id,
-                chunk_index=i,
-                heading=(chunk.heading or "(preamble)")[:255],
-                chunk_text=chunk.text,
-                embedding=json.dumps(vector) if vector is not None else None,
+        for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
+            db.add(
+                LibraryChunk(
+                    document_id=document.id,
+                    chunk_index=i,
+                    heading=(chunk.heading or "(preamble)")[:255],
+                    chunk_text=chunk.text,
+                    embedding=json.dumps(vector) if vector is not None else None,
+                )
             )
-        )
+    except Exception:
+        db.rollback()
+        raise
 
     db.commit()
     db.refresh(document)
