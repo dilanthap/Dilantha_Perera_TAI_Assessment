@@ -48,11 +48,13 @@ built differently rather than sharing one approach:
 DEMO_MODE=1 uvicorn app.main:app --reload
 ```
 
-Demo mode serves bundled sample assessments instead of calling the API — no key,
-no network. The entire UI, database and scoring loop work identically, for both
-`/` and `/library`. It exists so you can see the app run before spending a key
-on it, and so the UI could be tested independently of model behaviour during
-development.
+Demo mode serves bundled sample data instead of calling the API — no key, no
+network. **The scenarios, scores, and library answers are fixed**; they don't
+read what you actually upload or type, they just cycle through a few canned
+examples (see `app/fixtures.py`). The UI, routing, and database loop are all
+real — only the model calls are swapped out. It exists so you can see the app
+run before spending a key on it, and so the UI could be tested independently
+of model behaviour during development.
 
 A ready-made sample policy is in [`samples/northwind_ai_policy.md`](samples/northwind_ai_policy.md)
 — a realistic one-page AI-usage policy for a fictional financial firm.

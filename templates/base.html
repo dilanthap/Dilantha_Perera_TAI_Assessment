@@ -13,8 +13,9 @@
 
 {% if demo_mode %}
 <div class="demo-banner">
-  Running in demo mode — assessments come from bundled sample data, not the live API.
-  Unset <code>DEMO_MODE</code> and set <code>ANTHROPIC_API_KEY</code> for real scoring.
+  Demo mode: every scenario and score below is fixed sample data — it doesn't
+  read what you upload or answer. Unset <code>DEMO_MODE</code> and set
+  <code>ANTHROPIC_API_KEY</code> to see it actually respond to your input.
 </div>
 {% endif %}
 
