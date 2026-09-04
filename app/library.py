@@ -17,8 +17,9 @@ from sqlalchemy.orm import Session
 from app import llm
 from app.database import get_db
 from app.models import LibraryDocument
+from app.ratelimit import enforce
 from app.rag import answer_library_question, ingest_document
-from app.templating import templates
+from app.templating import render_error, templates
 from app.text_utils import extract_upload_text, title_from_filename
 
 router = APIRouter()
@@ -27,12 +28,7 @@ MAX_UPLOAD_BYTES = 2_000_000  # ~2MB; library documents can run longer than one 
 
 
 def _error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request=request,
-        name="error.html",
-        context={"message": message, "demo_mode": llm.DEMO_MODE},
-        status_code=status_code,
-    )
+    return render_error(request, message, status_code)
 
 
 def _all_documents(db: Session) -> list[LibraryDocument]:
@@ -53,7 +49,7 @@ def library_home(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/library/documents")
+@router.post("/library/documents", dependencies=[Depends(enforce)])
 async def upload_document(
     request: Request,
     title: str = Form(""),
@@ -118,7 +114,7 @@ def delete_document(request: Request, document_id: int, db: Session = Depends(ge
     return RedirectResponse(url="/library", status_code=303)
 
 
-@router.post("/library/ask", response_class=HTMLResponse)
+@router.post("/library/ask", response_class=HTMLResponse, dependencies=[Depends(enforce)])
 def ask_library(request: Request, question: str = Form(""), db: Session = Depends(get_db)):
     """Retrieve across every document in the library and answer from that."""
     q = (question or "").strip()

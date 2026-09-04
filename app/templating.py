@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from fastapi import Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -39,3 +41,18 @@ def section_tag(text: str) -> str | None:
 
 
 templates.env.filters["section_tag"] = section_tag
+
+
+def render_error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
+    """Render the shared error page. Was duplicated verbatim in app/main.py
+    and app/library.py; centralised here so app/ratelimit.py's exception
+    handler can reach it too without a third copy.
+    """
+    from app import llm  # deferred: avoids a circular import at module load
+
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={"message": message, "demo_mode": llm.DEMO_MODE},
+        status_code=status_code,
+    )

@@ -66,6 +66,80 @@ A ready-made sample policy is in [`samples/northwind_ai_policy.md`](samples/nort
 
 ---
 
+## Deploying to Vercel
+
+Two things change between "runs on my laptop" and "runs as a public URL",
+and skipping either one produces a real problem, not a cosmetic one:
+
+1. **Storage.** [`app/database.py`](app/database.py) uses a local SQLite
+   *file* by default. That's the right call for local dev — zero setup — but
+   Vercel serverless functions have no persistent disk between invocations.
+   Deployed as-is, an upload can succeed and then 404 on the very next
+   request, unpredictably, depending on which instance happens to serve it.
+2. **Cost.** `/upload`, `/policy/{id}/answer`, `/library/documents`, and
+   `/library/ask` each make a real, billed call to Anthropic or Voyage. With
+   no rate limit, a public URL with no auth in front of it means anyone —
+   or any bot, or one broken retry loop — can run up real charges with no
+   ceiling.
+
+Both are handled, and both degrade gracefully when unconfigured — locally,
+neither of the services below is needed, and the app runs exactly as it did
+before this section existed.
+
+### 1. Add a Postgres database (Neon)
+
+Vercel Postgres was retired in December 2024; Neon is the current path via
+the Vercel Marketplace.
+
+1. In your Vercel project → **Storage** → **Marketplace Database Providers**
+   → **Neon** → create a database.
+2. This sets `DATABASE_URL` on your project automatically.
+3. That's it — [`app/database.py`](app/database.py) checks for `DATABASE_URL`
+   at startup: set, it connects to Postgres (via `psycopg`, pinned in
+   `requirements.txt`); unset, it falls back to the local SQLite file exactly
+   as before. `Base.metadata.create_all()` runs on every cold start and is
+   idempotent, so the tables get created on first deploy with no separate
+   migration step.
+
+### 2. Add rate limiting (Upstash Redis)
+
+An in-memory counter doesn't work here — Vercel functions are stateless
+between invocations, so it resets on every cold start and wouldn't actually
+stop sustained abuse. [`app/ratelimit.py`](app/ratelimit.py) uses Upstash
+Redis instead, for a counter that's shared across instances.
+
+1. In your Vercel project → **Storage** → **Marketplace Database Providers**
+   → **Upstash** → create a Redis database.
+2. This sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+   automatically.
+3. `app/ratelimit.py` checks for both at import time: set, every route that
+   calls a paid API is limited to 10 requests/minute per visitor (tune
+   `_LIMIT_MAX_REQUESTS` / `_LIMIT_WINDOW_SECONDS` — a starting guess, not a
+   measured value); unset, those routes run with no rate limiting, the same
+   as before this file existed.
+
+### 3. Set a hard spend cap, regardless of the above
+
+Rate limiting reduces exposure; it isn't a guarantee — a determined abuser
+distributing requests across enough IPs, or a limit set too loosely, can
+still get through. The one thing that actually puts a ceiling on the bill is
+**setting a spend limit directly with the API providers**: the Anthropic
+Console and the Voyage AI dashboard both support this. Do this regardless of
+whether rate limiting is configured — it's the backstop that holds even if
+everything else fails.
+
+### 4. Add your API keys and deploy
+
+`ANTHROPIC_API_KEY` and `VOYAGE_API_KEY` (see Quick start, above) still need
+setting as environment variables on the Vercel project — the Marketplace
+integrations above don't provide these. Then connect the GitHub repo to a
+new Vercel project (or `vercel deploy`); no other configuration is needed —
+[`vercel.json`](vercel.json) sets a 60-second function timeout (LLM and
+embedding calls are the slow steps), and Vercel auto-detects the FastAPI
+`app` instance at `app/main.py` with zero entrypoint configuration.
+
+---
+
 ## The loop
 
 ```
@@ -83,8 +157,9 @@ Upload policy  ──▶  Generate scenarios  ──▶  Answer in free text  �
 | `app/models.py` | `Policy` → `Scenario` → `Response`, plus `LibraryDocument` → `LibraryChunk` |
 | `app/library.py` | FastAPI routes for the policy library (`/library`) |
 | `app/rag.py` | Chunking, embedding (Voyage AI), retrieval and answer generation for the library |
-| `app/templating.py` | Shared `Jinja2Templates` instance used by both routers, plus the `section_tag` filter |
+| `app/templating.py` | Shared `Jinja2Templates` instance used by both routers, plus the `section_tag` filter and `render_error` |
 | `app/text_utils.py` | Shared upload helpers used by both routers: PDF/.txt/.md text extraction, filename-derived titles |
+| `app/ratelimit.py` | Rate limiting for the routes that call a paid API — see "Deploying to Vercel" |
 
 The policy library is a second, independent tool at `/library` — chunk → embed
 → retrieve → answer, for when a single policy's full text stops being the right
@@ -198,11 +273,16 @@ if feedback starts reading generic: change one constant to `claude-sonnet-5` or
 splitting generation and scoring across tiers is a small change rather than a
 refactor.
 
-### SQLite + SQLAlchemy
+### SQLite locally, Postgres in production — same ORM code either way
 
-One file, no external service, nothing to configure before running. The ORM layer
-is standard SQLAlchemy 2.x, so the `DATABASE_URL` in `database.py` is the only
-line that changes to move to Postgres.
+One file, no external service, nothing to configure before running locally.
+The ORM layer is standard SQLAlchemy 2.x with no SQLite-specific queries
+anywhere, so moving to Postgres for a real deployment needed zero model or
+query changes — only `app/database.py`'s engine setup, which now branches on
+whether `DATABASE_URL` is set. See "Deploying to Vercel" above: this isn't
+hypothetical, it's what a Vercel deployment actually needs, because
+serverless functions have no persistent local disk for a SQLite file to live
+on between requests.
 
 ### Server-rendered Jinja2, no build step
 
@@ -274,11 +354,12 @@ never surfaces as a stack trace.**
 app/
   main.py         FastAPI routes for the quiz loop
   library.py      FastAPI routes for the policy library (/library)
-  database.py     engine, session, init
+  database.py     engine, session, init — SQLite locally, Postgres if DATABASE_URL is set
   models.py       Policy / Scenario / Response, LibraryDocument / LibraryChunk
   llm.py          Anthropic wrapper, JSON extraction, DEMO_MODE
   rag.py          chunking, Voyage AI embedding, retrieval, library answers
-  templating.py   shared Jinja2Templates instance + section_tag filter
+  ratelimit.py    rate limiting for paid-API routes, via Upstash Redis
+  templating.py   shared Jinja2Templates instance + section_tag filter + render_error
   text_utils.py   shared upload helpers: PDF/.txt/.md extraction, filename titles
   prompts.py      all prompts
   generation.py   policy -> scenarios
@@ -287,4 +368,5 @@ app/
 templates/        base, upload, quiz, results, error, library
 static/style.css  single stylesheet
 samples/          one realistic sample policy
+vercel.json       Vercel function config (maxDuration) — see "Deploying to Vercel"
 ```

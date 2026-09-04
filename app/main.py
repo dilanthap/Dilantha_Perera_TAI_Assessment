@@ -25,8 +25,9 @@ from app.database import get_db, init_db
 from app.generation import generate_scenarios
 from app.library import router as library_router
 from app.models import Policy, Response as ResponseModel, Scenario
+from app.ratelimit import RateLimitExceeded, enforce
 from app.scoring import score_answer
-from app.templating import templates
+from app.templating import render_error, templates
 from app.text_utils import extract_upload_text, title_from_filename
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -46,6 +47,15 @@ app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="stati
 app.include_router(library_router)
 
 
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """Registered once, on the top-level app — applies to library.py's
+    routes too, since Starlette's exception handling wraps every included
+    router, not just routes declared directly on `app`.
+    """
+    return _error(request, exc.message, status_code=429)
+
+
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
@@ -53,12 +63,7 @@ app.include_router(library_router)
 
 def _error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
     """Render the friendly error page."""
-    return templates.TemplateResponse(
-        request=request,
-        name="error.html",
-        context={"message": message, "demo_mode": llm.DEMO_MODE},
-        status_code=status_code,
-    )
+    return render_error(request, message, status_code)
 
 
 def _latest_responses(scenarios: list[Scenario]) -> dict[int, ResponseModel]:
@@ -105,7 +110,7 @@ def upload_page(request: Request, sample: int = 0):
     )
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=[Depends(enforce)])
 async def upload_policy(
     request: Request,
     title: str = Form(""),
@@ -203,7 +208,7 @@ def quiz(request: Request, policy_id: int, n: int = 0, db: Session = Depends(get
     )
 
 
-@app.post("/policy/{policy_id}/answer")
+@app.post("/policy/{policy_id}/answer", dependencies=[Depends(enforce)])
 def submit_answer(
     request: Request,
     policy_id: int,

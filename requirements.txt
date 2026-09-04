@@ -8,3 +8,12 @@ voyageai==0.5.0
 python-multipart==0.0.32
 pypdf==6.16.2
 python-dotenv==1.2.3
+
+# Production only (Vercel) — local dev doesn't need these. See "Deploying to
+# Vercel" in the README. psycopg is the Postgres driver for DATABASE_URL
+# (Neon); upstash-redis/upstash-ratelimit back the rate limiter in
+# app/ratelimit.py. Both degrade gracefully to a no-op / SQLite fallback
+# when their env vars aren't set, so it's safe to leave these installed.
+psycopg[binary]==3.3.5
+upstash-redis==1.8.0
+upstash-ratelimit==1.1.0
