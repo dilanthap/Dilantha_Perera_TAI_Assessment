@@ -28,6 +28,7 @@ from app.library import router as library_router
 from app.models import Policy, Response as ResponseModel, Scenario
 from app.scoring import score_answer
 from app.templating import templates
+from app.text_utils import title_from_filename
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_POLICY_PATH = PROJECT_ROOT / "samples" / "northwind_ai_policy.md"
@@ -160,6 +161,7 @@ async def upload_policy(
 ):
     """Store the policy, generate scenarios, and send the user into the quiz."""
     text = (policy_text or "").strip()
+    fallback_title = "Untitled AI-Usage Policy"
 
     # An uploaded file wins over the textarea if both are supplied.
     if policy_file is not None and policy_file.filename:
@@ -174,6 +176,7 @@ async def upload_policy(
             text = _extract_upload_text(policy_file, raw)
         except ValueError as exc:
             return _error(request, str(exc))
+        fallback_title = title_from_filename(policy_file.filename, fallback_title)
 
     if not text:
         return _error(
@@ -189,7 +192,7 @@ async def upload_policy(
             "Please provide the full policy document.",
         )
 
-    clean_title = (title or "").strip() or "Untitled AI-Usage Policy"
+    clean_title = (title or "").strip() or fallback_title
 
     policy = Policy(title=clean_title[:255], raw_text=text)
     db.add(policy)
@@ -292,6 +295,24 @@ def submit_answer(
     db.commit()
 
     return RedirectResponse(url=f"/policy/{policy_id}/quiz?n={n + 1}", status_code=303)
+
+
+@app.post("/policy/{policy_id}/delete")
+def delete_policy(request: Request, policy_id: int, db: Session = Depends(get_db)):
+    """Remove a policy and everything generated from it.
+
+    Cascades to its Scenarios and their Responses via the ORM relationships
+    in models.py (cascade="all, delete-orphan"), the same pattern used for
+    the library's delete_document in app/library.py.
+    """
+    policy = _get_policy_or_none(db, policy_id)
+    if policy is None:
+        return _error(request, "That policy could not be found.", status_code=404)
+
+    db.delete(policy)
+    db.commit()
+
+    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/policy/{policy_id}/results", response_class=HTMLResponse)

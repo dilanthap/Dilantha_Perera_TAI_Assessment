@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models import LibraryDocument
 from app.rag import answer_library_question, ingest_document
 from app.templating import templates
+from app.text_utils import title_from_filename
 
 router = APIRouter()
 
@@ -65,6 +66,7 @@ async def upload_document(
 ):
     """Chunk and embed one document into the library."""
     text = (document_text or "").strip()
+    fallback_title = "Untitled document"
 
     if document_file is not None and document_file.filename:
         suffix = Path(document_file.filename).suffix.lower()
@@ -85,6 +87,7 @@ async def upload_document(
                 "That file isn't readable as UTF-8 text. Upload a plain .txt "
                 "or .md file, or paste the text directly.",
             )
+        fallback_title = title_from_filename(document_file.filename, fallback_title)
 
     if not text:
         return _error(
@@ -98,7 +101,7 @@ async def upload_document(
             "That document looks too short to be useful in the library.",
         )
 
-    clean_title = (title or "").strip() or "Untitled document"
+    clean_title = (title or "").strip() or fallback_title
 
     try:
         ingest_document(db, title=clean_title[:255], raw_text=text)

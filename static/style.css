@@ -160,6 +160,21 @@ h2 {
   margin: 0 0 10px;
 }
 
+/* Page title + a destructive action (e.g. "Remove policy") on one row.
+   Used on quiz.html and results.html — see .btn-remove, shared with the
+   library's per-document delete control. */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.page-head h2 { margin-bottom: 4px; }
+.page-head form { margin: 6px 0 0; flex-shrink: 0; }
+
 .lede {
   color: var(--ink-soft);
   font-size: 15.5px;
