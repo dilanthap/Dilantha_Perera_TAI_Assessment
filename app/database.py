@@ -9,7 +9,7 @@ Postgres later is a one-line change.
 from pathlib import Path
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # Resolve the DB next to the project root rather than the current working
 # directory, so `uvicorn app.main:app` behaves the same from any cwd.

@@ -42,6 +42,11 @@ built differently rather than sharing one approach:
   retrieved excerpts. Needs `VOYAGE_API_KEY` for real embeddings; runs on
   fixtures under `DEMO_MODE=1` like everything else.
 
+Both accept `.txt`, `.md`, or `.pdf` uploads (PDF is best-effort via `pypdf`),
+and both let you remove what you've added — a policy and its scenarios/answers
+from `/`, a document and its chunks from `/library` — with a confirmation
+before anything is deleted.
+
 ### Try it without an API key
 
 ```bash
@@ -79,6 +84,7 @@ Upload policy  ──▶  Generate scenarios  ──▶  Answer in free text  �
 | `app/library.py` | FastAPI routes for the policy library (`/library`) |
 | `app/rag.py` | Chunking, embedding (Voyage AI), retrieval and answer generation for the library |
 | `app/templating.py` | Shared `Jinja2Templates` instance used by both routers, plus the `section_tag` filter |
+| `app/text_utils.py` | Shared upload helpers used by both routers: PDF/.txt/.md text extraction, filename-derived titles |
 
 The policy library is a second, independent tool at `/library` — chunk → embed
 → retrieve → answer, for when a single policy's full text stops being the right
@@ -264,6 +270,7 @@ app/
   llm.py          Anthropic wrapper, JSON extraction, DEMO_MODE
   rag.py          chunking, Voyage AI embedding, retrieval, library answers
   templating.py   shared Jinja2Templates instance + section_tag filter
+  text_utils.py   shared upload helpers: PDF/.txt/.md extraction, filename titles
   prompts.py      all prompts
   generation.py   policy -> scenarios
   scoring.py      answer -> assessment
