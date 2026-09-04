@@ -35,7 +35,10 @@
 
   <div class="field">
     <label for="policy_file">Policy document</label>
-    <input type="file" id="policy_file" name="policy_file" accept=".txt,.md,.markdown,.pdf">
+    <div class="file-input-row">
+      <input type="file" id="policy_file" name="policy_file" accept=".txt,.md,.markdown,.pdf">
+      <button type="button" class="btn-remove" id="policy_file-clear" hidden>Clear</button>
+    </div>
     <p class="hint">
       .txt and .md are the reliable path. .pdf is supported best-effort — if
       extraction fails you'll get a clear message, not a crash.
@@ -60,6 +63,21 @@
     btn.textContent = 'Generating…';
     document.getElementById('working-note').hidden = false;
   });
+
+  // Let a wrong file selection be cleared before submitting, rather than
+  // only after — the native file input has no built-in way to do this
+  // consistently across browsers.
+  (function () {
+    var fileInput = document.getElementById('policy_file');
+    var clearBtn = document.getElementById('policy_file-clear');
+    fileInput.addEventListener('change', function () {
+      clearBtn.hidden = fileInput.files.length === 0;
+    });
+    clearBtn.addEventListener('click', function () {
+      fileInput.value = '';
+      clearBtn.hidden = true;
+    });
+  })();
 </script>
 
 <p class="hint" style="text-align: center; margin-top: 28px;">

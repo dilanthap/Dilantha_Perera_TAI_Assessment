@@ -296,6 +296,15 @@ input[type="file"] {
   color: var(--ink-soft);
 }
 
+.file-input-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.file-input-row .btn-remove { padding: 3px 0; }
+
 .field { margin-bottom: 22px; }
 .field:last-of-type { margin-bottom: 0; }
 
