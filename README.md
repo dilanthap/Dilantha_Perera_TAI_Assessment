@@ -168,10 +168,18 @@ wave that scenario away, it's built out for real:
   handful of documents, at most a few dozen chunks) a linear scan in Python is
   fast enough, and it costs zero extra infrastructure — the same reasoning
   `app/database.py` applies to choosing SQLite over Postgres.
-- **A retrieval-confidence signal**, carried through to both the prompt and the
-  UI, that keeps "the search found nothing convincing" distinguishable from
-  "the policy is silent" — the exact failure mode that would otherwise
-  undermine the anti-fabrication guarantee once retrieval is in the loop.
+- **A retrieval-confidence signal — but the model's own judgment is the
+  headline, not the raw similarity number.** The first version showed a
+  "high/low/none confidence" pill computed straight from the top chunk's
+  cosine similarity, before the model had read anything. Live testing found
+  it actively misleading in both directions: a question with no real answer
+  in the library scored 0.51 (nominally "high") while a correctly-answered
+  question's top chunk scored 0.45 ("low"). The pill now reflects `addressed`
+  — the model's own explicit judgment, from actually reading the retrieved
+  text, of whether it found an answer — which got both of those cases right
+  where the raw score didn't. Per-chunk similarity scores are still shown,
+  demoted to supporting detail under "Retrieved excerpts considered" rather
+  than the number a user is meant to trust.
 
 Two tools, two scales, and the same principle underneath both: pick the
 retrieval strategy the actual document set justifies, not the one that's
@@ -232,11 +240,12 @@ never surfaces as a stack trace.**
   documents" — it stops being the right call once a client's library grows past
   that, at which point it's a swap to pgvector or a dedicated vector store, not
   a rewrite of the chunking or prompting.
-- **An eval set for the confidence thresholds.** `_HIGH_CONFIDENCE_FLOOR` /
-  `_LOW_CONFIDENCE_FLOOR` in `app/rag.py` are a reasonable starting heuristic,
-  not a measured one — they need a labelled set of (question, expected
-  relevant-or-not) pairs to tune properly, the same gap called out below for
-  the scoring bands.
+- **A retrieval-quality eval set.** `addressed` now drives the UI instead of
+  raw similarity (see above), so the sharper remaining gap isn't the
+  confidence thresholds — it's not knowing how often retrieval hands the
+  model the wrong chunks entirely, silently, before `addressed` ever gets a
+  chance to catch it. Needs a labelled set of (question, expected source
+  chunk) pairs, the same gap called out below for the scoring bands.
 - **Audit trail for library questions.** The quiz keeps every `Response`;
   `/library/ask` currently doesn't persist a `Query` row, so there's no record
   of what was asked or what was retrieved for it — the same defensibility

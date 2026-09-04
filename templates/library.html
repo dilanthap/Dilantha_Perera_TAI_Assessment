@@ -8,8 +8,8 @@
 <p class="lede">
   Nobody's quizzed here. Ask a question in your own words across every document
   below, and get an answer grounded in whatever a similarity search actually
-  finds — with a confidence signal, so a weak search result never gets
-  presented as a sure answer.
+  finds — marked "Not addressed" rather than guessed at when nothing retrieved
+  actually answers it.
 </p>
 
 {% if demo_mode %}
@@ -45,8 +45,8 @@
       <p class="scenario-text">{{ question }}</p>
     </div>
     <div class="result-score">
-      <span class="pill {% if answer.confidence == 'high' %}aligned{% elif answer.confidence == 'low' %}partial{% else %}misaligned{% endif %}">
-        {{ answer.confidence }} confidence
+      <span class="pill {% if answer.addressed %}aligned{% else %}partial{% endif %}">
+        {% if answer.addressed %}Answered{% else %}Not addressed{% endif %}
       </span>
     </div>
   </div>
@@ -73,7 +73,11 @@
     <div class="block">
       <p class="section-label">
         Retrieved excerpts considered
-        {% if not answer.addressed %}<span class="hint">(none scored highly enough to answer from)</span>{% endif %}
+        {% if not answer.addressed %}<span class="hint">(read but didn't answer the question — see below)</span>{% endif %}
+      </p>
+      <p class="hint" style="margin: 0 0 10px;">
+        Similarity is a rough search signal, not a reliability score — trust the
+        "Answered" / "Not addressed" verdict above over these numbers.
       </p>
       {% for r in answer.retrieved %}
       <div class="retrieved-item">
