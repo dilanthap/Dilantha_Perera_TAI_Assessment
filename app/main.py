@@ -12,7 +12,6 @@ variation on this one.
 
 from __future__ import annotations
 
-import io
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -28,12 +27,11 @@ from app.library import router as library_router
 from app.models import Policy, Response as ResponseModel, Scenario
 from app.scoring import score_answer
 from app.templating import templates
-from app.text_utils import title_from_filename
+from app.text_utils import extract_upload_text, title_from_filename
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_POLICY_PATH = PROJECT_ROOT / "samples" / "northwind_ai_policy.md"
 
-TEXT_EXTENSIONS = {".txt", ".md", ".markdown"}
 MAX_UPLOAD_BYTES = 1_000_000  # ~1MB; policies are pages, not books
 
 
@@ -61,50 +59,6 @@ def _error(request: Request, message: str, status_code: int = 400) -> HTMLRespon
         context={"message": message, "demo_mode": llm.DEMO_MODE},
         status_code=status_code,
     )
-
-
-def _extract_upload_text(upload: UploadFile, raw: bytes) -> str:
-    """Get text out of an uploaded file.
-
-    .txt / .md is the primary path and always works. PDF is a convenience: it is
-    isolated here and any pypdf failure becomes a clear message, so a demo never
-    depends on PDF parsing quirks.
-    """
-    suffix = Path(upload.filename or "").suffix.lower()
-
-    if suffix == ".pdf":
-        try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(io.BytesIO(raw))
-            pages = [page.extract_text() or "" for page in reader.pages]
-        except Exception:
-            raise ValueError(
-                "That PDF could not be read. PDF support is best-effort — please "
-                "paste the policy text directly, or upload a .txt or .md file."
-            ) from None
-
-        text = "\n\n".join(pages).strip()
-        if not text:
-            raise ValueError(
-                "No text could be extracted from that PDF — it may be a scan or "
-                "image-only. Please paste the policy text directly instead."
-            )
-        return text
-
-    if suffix and suffix not in TEXT_EXTENSIONS:
-        raise ValueError(
-            f"Unsupported file type '{suffix}'. Upload a .txt, .md or .pdf file, "
-            "or paste the policy text directly."
-        )
-
-    try:
-        return raw.decode("utf-8").strip()
-    except UnicodeDecodeError:
-        raise ValueError(
-            "That file isn't readable as UTF-8 text. Please upload a plain .txt "
-            "or .md file, or paste the text directly."
-        ) from None
 
 
 def _latest_responses(scenarios: list[Scenario]) -> dict[int, ResponseModel]:
@@ -173,7 +127,7 @@ async def upload_policy(
                 "documents of a few pages.",
             )
         try:
-            text = _extract_upload_text(policy_file, raw)
+            text = extract_upload_text(policy_file, raw)
         except ValueError as exc:
             return _error(request, str(exc))
         fallback_title = title_from_filename(policy_file.filename, fallback_title)

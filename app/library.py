@@ -10,8 +10,6 @@ docstring for why the quiz loop deliberately does NOT work this way.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -21,12 +19,11 @@ from app.database import get_db
 from app.models import LibraryDocument
 from app.rag import answer_library_question, ingest_document
 from app.templating import templates
-from app.text_utils import title_from_filename
+from app.text_utils import extract_upload_text, title_from_filename
 
 router = APIRouter()
 
 MAX_UPLOAD_BYTES = 2_000_000  # ~2MB; library documents can run longer than one policy
-TEXT_EXTENSIONS = {".txt", ".md", ".markdown"}
 
 
 def _error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
@@ -69,24 +66,13 @@ async def upload_document(
     fallback_title = "Untitled document"
 
     if document_file is not None and document_file.filename:
-        suffix = Path(document_file.filename).suffix.lower()
-        if suffix and suffix not in TEXT_EXTENSIONS:
-            return _error(
-                request,
-                f"Unsupported file type '{suffix}'. Upload a .txt or .md file, "
-                "or paste the text directly.",
-            )
         raw = await document_file.read()
         if len(raw) > MAX_UPLOAD_BYTES:
             return _error(request, "That file is larger than 2MB.")
         try:
-            text = raw.decode("utf-8").strip()
-        except UnicodeDecodeError:
-            return _error(
-                request,
-                "That file isn't readable as UTF-8 text. Upload a plain .txt "
-                "or .md file, or paste the text directly.",
-            )
+            text = extract_upload_text(document_file, raw)
+        except ValueError as exc:
+            return _error(request, str(exc))
         fallback_title = title_from_filename(document_file.filename, fallback_title)
 
     if not text:
