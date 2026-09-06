@@ -248,7 +248,7 @@ def ingest_document(db, title: str, raw_text: str) -> LibraryDocument:
                 LibraryChunk(
                     document_id=document.id,
                     chunk_index=i,
-                    heading=(chunk.heading or "(preamble)")[:255],
+                    heading=(chunk.heading or "(untitled section)")[:255],
                     chunk_text=chunk.text,
                     embedding=json.dumps(vector) if vector is not None else None,
                 )

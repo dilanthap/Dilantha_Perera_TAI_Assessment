@@ -42,7 +42,16 @@ else:
     # this argument.
     _connect_args = {"check_same_thread": False}
 
-engine = create_engine(DATABASE_URL, connect_args=_connect_args)
+# pool_pre_ping: issue a cheap liveness check before handing a pooled
+# connection to a request, and transparently replace it if the far end has
+# gone away. This is not optional in production. A Vercel instance stays warm
+# between invocations while Neon suspends idle compute after a few minutes,
+# so the pool keeps a connection the database has already closed; without
+# this, the first DB-touching request after a quiet period fails with a raw
+# OperationalError — reproduced as an intermittent 500 that then "fixes
+# itself" on retry, which is the worst possible failure to debug. Harmless
+# and near-free on SQLite locally.
+engine = create_engine(DATABASE_URL, connect_args=_connect_args, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

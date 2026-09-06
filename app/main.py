@@ -16,9 +16,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import llm
 from app.database import get_db, init_db
@@ -54,6 +56,40 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
     router, not just routes declared directly on `app`.
     """
     return _error(request, exc.message, status_code=429)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Render 404s (and any other bare HTTPException) as the app's own error
+    page rather than FastAPI's default `{"detail": "Not Found"}` JSON.
+
+    Every route in this app already returns error.html for the failures it
+    anticipates; a mistyped URL was the one path that still leaked raw JSON at
+    a visitor, which reads as a broken app rather than a wrong address.
+    """
+    message = (
+        "That page doesn't exist. Start from the upload form, or open the "
+        "policy library."
+        if exc.status_code == 404
+        else str(exc.detail)
+    )
+    return _error(request, message, status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Same treatment for malformed path/query parameters.
+
+    `/policy/abc/quiz` would otherwise return FastAPI's 422 validation dump —
+    accurate, but it exposes internal parameter names to someone who has
+    simply edited a URL.
+    """
+    return _error(
+        request,
+        "That web address isn't valid. Start from the upload form, or open "
+        "the policy library.",
+        status_code=422,
+    )
 
 
 # --------------------------------------------------------------------------
